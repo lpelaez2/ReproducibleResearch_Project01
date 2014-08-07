@@ -1,4 +1,4 @@
-ReproducibleResearch_Project01
-==============================
+Reproducible Research (Project01)
+=================================
 
 Repository for project 01
