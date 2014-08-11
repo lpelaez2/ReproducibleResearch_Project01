@@ -1,1 +1,213 @@
+# Reproducible Research
+## Peer assessment 1
+========================================================
+
+### Loading and preprocessing the data
+#### 1. Load the data
+
+```{r}
+# prepareFiles 
+# Download source file and uncompress it to make available for procesing
+prepareFiles <- function(){
+    # set several variables
+    sourceFile <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip?accessType=DOWNLOAD"
+    targetFile <- "./dataProject01.zip"
+     
+    # download compressed file using mode wb to preserve as binary type
+    download.file( sourceFile, 
+                   destfile=targetFile, 
+                   method="auto", 
+                   mode="wb"
+                 )       
+    
+    # uncompress file
+    unzip( targetFile, 
+           exdir = ".", 
+           overwrite = TRUE 
+         )
+}
+
+
+if (!file.exists("dataProject01.zip")) prepareFiles()
+```
+
+#### 2. Process/transform the data (if necessary) into a format suitable for your analysis
+
+```{r}
+# loadData
+# load data into R using read and transforms column date as a Date type
+loadData <- function(){
+    dataSet <- read.csv("activity.csv")
+    
+    dataSet$date <- as.Date(dataSet$date)
+    return( dataSet )
+}
+
+dataSet <- loadData()
+
+```
+
+
+### What is mean total number of steps taken per day?
+```{r}
+# sumStepsByDay
+# Sum steps for each day, stripping NA values
+sumStepsByDay <- function(data){
+    return (aggregate(steps  ~ date, 
+                      data,
+                      sum,
+                      na.rm = TRUE
+                 )
+           )
+}
+
+my_Result <- sumStepsByDay(dataSet)
+```
+
+#### 1. Make a histogram of the total number of steps taken each day
+```{r}
+hist(my_Result$steps,
+     col = "dark green",
+     xlab = "Steps by day (exclude NAs)",
+     main = "Histogram of total steps by day",
+     las = 1,
+     cex.axis = 0.75,
+     breaks = c(0, 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500),
+     xaxp = c(0, 25000, 10)
+)
+
+```
+#### 2. Calculate and report the mean and median total number of steps taken per day
+```{r}
+mean(my_Result$steps)
+median(my_Result$steps)
+
+```
+### What is the average daily activity pattern?
+```{r}
+# averageStepsByInterval
+# Calculates means for each interval, across all days, stripping NA values
+averageStepsByInterval <- function(data){
+    return (aggregate(steps  ~ interval, 
+                      data,
+                      mean,
+                      na.rm = TRUE
+                 )
+           ) 
+}
+
+my_SecondResult <- averageStepsByInterval(dataSet)
+
+```
+#### 1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r fig.width=7, fig.height=6}
+my_MaxTuple <- subset(my_SecondResult, steps == max(my_SecondResult$steps))
+
+plot(my_SecondResult$interval, 
+     my_SecondResult$steps,
+     type = "l",
+     xlab = "Interval",
+     ylab = "Average steps",
+     las = 1,
+     cex.axis = 0.6,
+     )
+
+points(my_MaxTuple$interval,
+       my_MaxTuple$steps, 
+       col="purple"
+      )
+
+text(my_MaxTuple$interval,
+     my_MaxTuple$steps, 
+     pos = 4,
+     col = "purple",
+     labels = paste("Max steps (", 
+                    my_MaxTuple$interval, 
+                    "-", 
+                    round(my_MaxTuple$steps, digits = 2), 
+                    ")", 
+                    sep = " "
+                    ),
+     cex = 0.75
+    )
+      
+```
+#### 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+my_MaxTuple
+```
+### Imputing missing values
+#### 1. Calculate and report the total number of missing values in the dataset
+```{r}
+sum(is.na(dataSet))
+```
+
+#### 2. Devise a strategy for filling in all of the missing values in the dataset
+Strategy will be to replace NAs by mean of the same interval
+
+```{r}
+# replaceNA
+# Replaces NA for the specific value of mean corresponding to interval
+replaceNA <- function(value, data){
+    averages <- averageStepsByInterval(data)
  
+    #identify NA for interval
+    idx<-which(data$interval == value & is.na(data$steps))
+    
+    # Changes NA for mean of this interval
+    data[idx,1]<- averages[averages$interval==value,2]
+    
+    return(data)
+    
+}
+
+
+```
+
+#### 3. Create a new dataset that is equal to the original dataset but with the missing data filled in
+```{r}
+# fillDataSet
+# Changes NA values 
+fillDataSet <- function(data){
+    dataSetFilled <- data
+    for ( interval in unique(data$interval))
+        dataSetFilled <- replaceNA(interval, dataSetFilled )
+    
+    return(dataSetFilled)
+}
+```
+
+*This take a long time, then it is cached
+```{r cache=TRUE}
+dataFilled <- fillDataSet(dataSet)
+```
+#### 4. Make a histogram of the total number of steps taken each day 
+```{r}
+my_ResultFilled <- sumStepsByDay(dataFilled)
+hist(my_ResultFilled$steps,
+     col = "purple",
+     xlab = "Steps by day (filled NAs)",
+     main = "Histogram of total steps by day",
+     las = 1,
+     cex.axis = 0.75,
+     breaks = c(0, 2500, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500),
+     xaxp = c(0, 25000, 10)
+)
+
+```
+####     Calculate and report the mean and median total number of steps taken per day.
+
+```{r}
+mean(my_ResultFilled$steps)
+median(my_ResultFilled$steps)
+
+```
+##### *Do these values differ from the estimates from the first part of the assignment?*
+Mean is the same
+Median differs
+
+##### *What is the impact of imputing missing data on the estimates of the total daily number of steps?*
+As mean for interval value was imputed to replace missing data median split to right
+
+### Are there differences in activity patterns between weekdays and weekends? 
